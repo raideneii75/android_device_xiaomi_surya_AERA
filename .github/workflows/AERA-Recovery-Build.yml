@@ -1,0 +1,104 @@
+name: AERA Recovery Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 360
+    steps:
+      - name: Check out device tree
+        uses: actions/checkout@v4
+
+      - name: Check runner resources
+        shell: bash
+        run: |
+          memory_gib=$(awk '/MemAvailable/ {printf "%d", $2 / 1024 / 1024}' /proc/meminfo)
+          disk_gib=$(df --output=avail -BG "$GITHUB_WORKSPACE" | tail -n 1 | tr -dc '0-9')
+          echo "Available memory: ${memory_gib} GiB"
+          echo "Available disk: ${disk_gib} GiB"
+          if (( memory_gib < 32 || disk_gib < 250 )); then
+            echo "::error::This Android build requires at least 32 GiB available memory and 250 GiB free disk."
+            exit 1
+          fi
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential ccache curl flex g++-multilib gcc-multilib \
+            git git-lfs gnupg gperf imagemagick lib32readline-dev lib32z1-dev \
+            libelf-dev liblz4-tool libncurses-dev libssl-dev libxml2 \
+            libxml2-utils lzop pngcrush python3 rsync squashfs-tools xsltproc \
+            zip zlib1g-dev
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install repo tool
+        shell: bash
+        run: |
+          mkdir -p "$HOME/bin"
+          curl --fail --location --retry 5 https://storage.googleapis.com/git-repo-downloads/repo \
+            --output "$HOME/bin/repo"
+          chmod a+x "$HOME/bin/repo"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Sync AERA source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_dir="$RUNNER_TEMP/aera-surya"
+          mkdir -p "$source_dir"
+          cd "$source_dir"
+          repo init -u https://github.com/AERA-Recovery/android_manifest.git \
+            -b aera-16.0 -m twrp-default.xml
+          mkdir -p .repo/local_manifests
+          cat > .repo/local_manifests/surya.xml <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <manifest>
+            <project path="device/xiaomi/surya"
+                     name="raideneii75/android_device_xiaomi_surya-AERA"
+                     remote="github"
+                     revision="main" />
+          </manifest>
+          EOF
+          repo sync -c --force-sync --no-clone-bundle --no-tags -j"$(nproc)"
+
+      - name: Build recovery image
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/aera-surya"
+          export AERA_BUILD_DEVICE=surya
+          source build/envsetup.sh
+          lunch twrp_surya-eng
+          mka adbd recoveryimage -j"$(nproc)"
+          recovery_image="out/target/product/surya/recovery.img"
+          if [[ ! -s "$recovery_image" ]]; then
+            recovery_image="$(find out/target/product/surya -maxdepth 1 -type f \
+              -name 'AERA*surya*.img' -print -quit)"
+          fi
+          if [[ -z "$recovery_image" || ! -s "$recovery_image" ]]; then
+            echo "::error::Build finished, but no recovery image was found."
+            find out/target/product/surya -maxdepth 1 -type f -name '*.img' -print
+            exit 1
+          fi
+          echo "path=$recovery_image" >> "$GITHUB_OUTPUT"
+        id: recovery
+
+      - name: Upload recovery image
+        uses: actions/upload-artifact@v4
+        with:
+          name: AERA-surya-recovery
+          path: ${{ runner.temp }}/aera-surya/${{ steps.recovery.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
