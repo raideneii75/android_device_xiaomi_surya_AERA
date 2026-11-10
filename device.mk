@@ -21,6 +21,14 @@ PRODUCT_PACKAGES += \
 # API
 PRODUCT_SHIPPING_API_LEVEL := 29
 
+# Qualcomm FBE decryption
+PRODUCT_PACKAGES += \
+	qcom_decrypt \
+	qcom_decrypt_fbe
+
+# AERA device-specific recovery settings
+$(call inherit-product, $(LOCAL_PATH)/aera_surya.mk)
+
 # Soong namespaces
 PRODUCT_SOONG_NAMESPACES += \
 	$(LOCAL_PATH) \

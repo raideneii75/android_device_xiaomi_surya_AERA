@@ -8,4 +8,4 @@
 PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/twrp_surya.mk
 
-COMMON_LUNCH_CHOICES := twrp_surya-eng
+COMMON_LUNCH_CHOICES := twrp_surya-aosp_current-eng

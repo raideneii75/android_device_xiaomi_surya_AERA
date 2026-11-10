@@ -1,8 +1,11 @@
-## Device Tree for building TWRP for POCO X3 NFC (karna/surya)
+## AERA Recovery device tree for POCO X3 NFC (surya/karna)
 
-## Features
+## Existing device-tree features
 
-<details><summary>Works: - Click to open</summary>
+The following checks are inherited from the source TWRP tree and have not yet
+been verified in an AERA build.
+
+<details><summary>Upstream TWRP checks: - Click to open</summary>
 <p>
 
 - [X] ADB
@@ -24,38 +27,89 @@
 </p>
 </details>
 
-## Compile
+## Build with GitHub Actions
 
-First checkout minimal twrp with aosp tree:
+This tree targets AERA's Android 16 (`aera-16.0`) source. Its device-specific
+settings are adapted from a TWRP 12.1 tree and have not yet been validated on
+the phone.
+Qualcomm FBE decryption is configured using the matching Surya recovery
+settings (`BOARD_USES_QCOM_FBE_DECRYPTION` and the `qcom_decrypt` packages);
+successful decryption still needs on-device validation.
+
+The `AERA Recovery Build` workflow is manually triggered from the Actions tab.
+It syncs AERA's manifest, builds `twrp_surya-aosp_current-eng`, and uploads
+the recovery image as a workflow artifact.
+
+The workflow requires a self-hosted Linux x86_64 runner labeled `self-hosted`,
+`Linux`, and `X64`, with at least 32 GB RAM and 250 GB free disk space. Standard
+GitHub-hosted runners do not have enough resources for the complete Android
+source tree.
+
+## Build directly on a VPS
+
+Use an x86_64 Ubuntu 24.04 VPS with at least 24 GiB available RAM and 250 GiB
+free disk space (32 GiB or more RAM and a 500 GiB disk are recommended). A
+30 GB VPS can work; the script automatically limits parallel build jobs based
+on available memory. Install Git, clone this tree, and run the included build
+script as root or as a user with sudo access:
 
 ```
-repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-12.1
-repo sync
+# Run as root:
+apt-get update && apt-get install -y git
+# Or, as a regular sudo-enabled user:
+sudo apt-get update && sudo apt-get install -y git
+git clone --branch main https://github.com/raideneii75/android_device_xiaomi_surya-AERA.git
+cd android_device_xiaomi_surya-AERA
+bash build_surya.sh
 ```
 
-Then add these projects to .repo/manifest.xml:
-
-```xml
-<project path="device/xiaomi/surya" name="brigudav/android_device_xiaomi_surya_twrp" remote="github" revision="android-12.1" />
-```
-
-Finally execute these:
+The script installs build dependencies, syncs AERA Android 16 and this device
+tree, then builds the recovery. It defaults to `$HOME/android/aera-surya`.
+To use a mounted large disk or override the automatically selected job count,
+set:
 
 ```
-. build/envsetup.sh
-lunch twrp_surya-eng
-mka recoveryimage ALLOW_MISSING_DEPENDENCIES=true # Only if you use minimal twrp tree.
+AERA_BUILD_DIR=/mnt/android/aera-surya BUILD_JOBS=8 bash build_surya.sh
 ```
 
-To test it:
+The script prints the recovery image path when the build succeeds. Test by
+booting it temporarily before considering a flash:
 
 ```
-fastboot boot out/target/product/surya/recovery.img
+fastboot boot /path/to/recovery.img
 ```
 
-## Other Sources
+After a successful build, the script automatically uploads the recovery image
+to GoFile and prints its download link. The share link can be accessed by
+anyone who has it. To keep the image local and skip uploading, run:
 
-Using precompiled stock kernel.
+```
+GOFILE_UPLOAD=0 bash build_surya.sh
+```
+
+The tree uses a precompiled stock kernel. Validate display, touch, data
+decryption, partition mounting, backup/restore, and flashing on the device
+before treating the image as production-ready.
+
+The recovery UI refresh target is set to 120 Hz to match the POCO X3 NFC
+panel. If the rebuilt recovery still stutters or display stability gets worse,
+capture `/tmp/recovery.log` and report whether the stutter affects animations,
+touch response, or both; do not copy the Chiron KGSL-specific patches directly,
+as they depend on that device's graphics stack.
+
+The adaptive UI canvas is configured for the Surya's 1080 x 2400 display.
+Legacy vertical offset overrides are intentionally left unset so they do not
+shift or clip the native AERA interface.
+
+Wi-Fi UI support is enabled, and the build script fetches AERA's required
+Android 16 `wpa_supplicant_8` source if it is not already present. Wi-Fi still
+requires the matching Surya kernel modules and firmware from the installed ROM;
+the Peridot recovery's WLAN modules and WPSS startup sequence are device-specific
+and must not be copied to Surya. Confirm the module names and firmware paths on
+the target ROM before configuring module loading. The checked-in recovery
+kernel identifies itself as 4.14.180, while the tested Android ROM reports
+4.14.357-rethinking; recovery Wi-Fi needs a kernel with the matching WLAN
+driver and firmware setup, not only the UI/supplicant option.
 
 ### Copyright
  ```
