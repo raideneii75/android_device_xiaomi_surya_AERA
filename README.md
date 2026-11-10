@@ -23,6 +23,7 @@ been verified in an AERA build.
 - [X] Sideload (adb sideload update.zip)
 - [X] Reboot to bootloader/recovery/system/fasbootd
 - [X] F2FS/EXT4 Support, exFAT/NTFS where supported
+- [ ] Wi-Fi (not working yet)
 
 </p>
 </details>
