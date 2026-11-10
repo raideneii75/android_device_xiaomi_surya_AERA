@@ -102,15 +102,6 @@ The adaptive UI canvas is configured for the Surya's 1080 x 2400 display.
 Legacy vertical offset overrides are intentionally left unset so they do not
 shift or clip the native AERA interface.
 
-Wi-Fi UI support is enabled, and the build script fetches AERA's required
-Android 16 `wpa_supplicant_8` source if it is not already present. Wi-Fi still
-requires the matching Surya kernel modules and firmware from the installed ROM;
-the Peridot recovery's WLAN modules and WPSS startup sequence are device-specific
-and must not be copied to Surya. Confirm the module names and firmware paths on
-the target ROM before configuring module loading. The checked-in recovery
-kernel identifies itself as 4.14.180, while the tested Android ROM reports
-4.14.357-rethinking; recovery Wi-Fi needs a kernel with the matching WLAN
-driver and firmware setup, not only the UI/supplicant option.
 
 ### Copyright
  ```

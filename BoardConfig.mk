@@ -167,3 +167,8 @@ AERA_INCLUDE_PYTHON := true
 AERA_PREPARE_DATA_MEDIA_EARLY := true
 # Match the Surya panel's 120 Hz mode for smoother recovery UI updates.
 AERA_FRAMERATE := 120
+
+# Surya is A-only (dynamic partitions without slots). AOSP defaults
+# AB_OTA_UPDATER to true when unset, which breaks super-partition mapping and
+# keeps /vendor from mounting, so the ROM's crypto props are never copied.
+AB_OTA_UPDATER := false
